@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev with Foresight</title>
+<meta name="description" content="Jev-AD: safe language-guided autonomous driving with a typed decision model and a language world model that foresees the consequences of every candidate action.">
+<meta property="og:title" content="Jev with Foresight: Safe Language-Guided Autonomous Driving via a Language World Model">
+<meta property="og:description" content="A fast typed decision model with foresight from a language world model: collisions in simulated highway merging fall from 26.0% to 2.4%, and in replayed NGSIM traffic from 48.2% to 2.8%.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one reading column with a left-aligned header; figures use the full column; the four headline
+   numbers sit in a strip under the video. Display face echoes highway signage (NGSIM: California freeways). */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --ink: #15191e;
+  --muted: #56606c;
+  --line: #d6dce4;
+  --accent: #1f6fd1;          /* Jev-AD blue, as in the paper's figures */
+  --accent-ink: #ffffff;
+  --before: #b3364a;          /* collision rate without foresight */
+  --code-bg: #eef1f5;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step--1: 0.9rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.3rem;
+  --step-2: 1.75rem;
+  --step-3: clamp(2.3rem, 5vw, 3.4rem);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1318;
+    --surface: #171c22;
+    --ink: #e7ebf0;
+    --muted: #9ba5b1;
+    --line: #2b333d;
+    --accent: #5c9cf0;
+    --accent-ink: #0b1220;
+    --before: #f07c8d;
+    --code-bg: #1d232b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1318;
+  --surface: #171c22;
+  --ink: #e7ebf0;
+  --muted: #9ba5b1;
+  --line: #2b333d;
+  --accent: #5c9cf0;
+  --accent-ink: #0b1220;
+  --before: #f07c8d;
+  --code-bg: #1d232b;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.6;
+}
+a { color: var(--accent); text-underline-offset: 0.15em; }
+a:focus-visible, button:focus-visible, video:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+img, video { max-width: 100%; height: auto; display: block; }
+
+.wrap { width: min(960px, 100% - 32px); margin-inline: auto; }
+.prose { max-width: none; }
+main p, main li > div { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+
+header.top { padding: 56px 0 28px; display: grid; gap: 14px; }
+.title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--step-3);
+  line-height: 1.02;
+  letter-spacing: 0.005em;
+  margin: 0;
+  text-wrap: balance;
+}
+.subtitle {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--step-2);
+  line-height: 1.2;
+  color: var(--muted);
+  margin: 0;
+  text-wrap: balance;
+}
+.authors { margin: 6px 0 0; font-size: var(--step-1); }
+.authors span + span::before { content: ", "; }
+.affil { margin: 0; color: var(--muted); }
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.02em;
+  text-decoration: none;
+  border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-ink);
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.pending { background: transparent; color: var(--muted); border-color: var(--line); border-style: dashed; cursor: default; }
+.btn:hover:not(.pending) { filter: brightness(1.08); }
+
+.video-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.video-card video { width: 100%; aspect-ratio: 16 / 9; background: #000; }
+.video-card p { margin: 0; padding: 10px 16px 12px; color: var(--muted); font-size: var(--step--1); }
+
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 14px;
+  margin: 22px 0 8px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  display: grid; align-content: start; gap: 6px;
+}
+.tile .value {
+  font-family: var(--font-display); font-weight: 700; font-size: 2rem; line-height: 1.05;
+  font-variant-numeric: tabular-nums; color: var(--accent);
+}
+.tile .value .from { color: var(--before); }
+.tile .value .arrow { color: var(--muted); font-weight: 500; padding: 0 2px; }
+.tile .label { color: var(--muted); font-size: var(--step--1); line-height: 1.45; }
+
+section { padding: 40px 0 8px; border-top: 1px solid var(--line); margin-top: 40px; }
+section:first-of-type { border-top: 0; margin-top: 16px; padding-top: 8px; }
+h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: var(--step-2);
+  margin: 0 0 12px; line-height: 1.15; text-wrap: balance;
+}
+h3 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 28px 0 8px; text-wrap: balance; }
+p { margin: 0 0 14px; }
+.lead { font-size: var(--step-1); line-height: 1.5; }
+
+figure { margin: 18px 0 26px; }
+figure .sheet {
+  background: #ffffff;              /* the figures are printed on white in the paper */
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+figure.column { max-width: 640px; }
+figcaption { margin-top: 10px; color: var(--muted); font-size: var(--step--1); line-height: 1.5; }
+figcaption b { color: var(--ink); font-weight: 600; }
+
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 22px; align-items: start; }
+.pair figure { margin: 0; }
+
+ol.steps { list-style: none; padding: 0; margin: 8px 0 18px; display: grid; gap: 12px; counter-reset: step; }
+ol.steps li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; }
+ol.steps li::before {
+  content: counter(step);
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink);
+}
+ol.steps b { font-weight: 600; }
+.when { color: var(--muted); font-size: var(--step--1); display: block; }
+
+.note { color: var(--muted); font-size: var(--step--1); border-left: 3px solid var(--line); padding-left: 12px; }
+
+.bib {
+  position: relative;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 16px 16px;
+  overflow-x: auto;
+}
+.bib pre { margin: 0; font-family: var(--font-mono); font-size: 0.86rem; line-height: 1.55; white-space: pre; }
+.copy {
+  position: absolute; top: 10px; right: 10px;
+  font-family: var(--font-display); font-weight: 600; font-size: 0.95rem;
+  padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+}
+
+footer { padding: 36px 0 56px; color: var(--muted); font-size: var(--step--1); }
+
+@media (max-width: 420px) {
+  header.top { padding-top: 32px; }
+  .tile .value { font-size: 1.7rem; }
+  figure .sheet { padding: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1 class="title">Jev with Foresight</h1>
+  <p class="subtitle">Safe Language-Guided Autonomous Driving via a Language World Model</p>
+  <p class="authors"><span>Yansong Qu</span><span>Jiancong Chen</span><span>Samuel Labi</span></p>
+  <p class="affil">Lyles School of Civil and Construction Engineering, Purdue University</p>
+  <nav class="links" aria-label="Paper links">
+    <span class="btn pending" title="The arXiv link will be added once the preprint is posted">arXiv (coming soon)</span>
+    <a class="btn" href="#video">Video</a>
+    <a class="btn ghost" href="#citation">BibTeX</a>
+  </nav>
+</header>
+
+<div id="video" class="video-card">
+  <video controls preload="metadata" playsinline poster="static/videos/poster.png">
+    <source src="static/videos/jev_with_foresight.mp4" type="video/mp4">
+    Your browser cannot play this video. <a href="static/videos/jev_with_foresight.mp4">Download it (MP4, 5 MB)</a>.
+  </video>
+  <p>Closed-loop episodes from the experiments, in simulated highway merging and in replayed NGSIM traffic (1 min 33 s).</p>
+</div>
+
+<div class="numbers">
+  <div class="tile">
+    <div class="value"><span class="from">26.0%</span><span class="arrow">&rarr;</span>2.4%</div>
+    <div class="label">Collision rate in simulated highway merging: the same decision model without and with foresight (500 car-episodes)</div>
+  </div>
+  <div class="tile">
+    <div class="value"><span class="from">48.2%</span><span class="arrow">&rarr;</span>2.8%</div>
+    <div class="label">Collision rate in replayed real-world NGSIM traffic (500 episodes)</div>
+  </div>
+  <div class="tile">
+    <div class="value">93%</div>
+    <div class="label">of free-form command trials achieve the passenger's intent, including negated requests and requests in Chinese</div>
+  </div>
+  <div class="tile">
+    <div class="value">0.25&nbsp;s</div>
+    <div class="label">per decision including foresight, well within the 0.5&nbsp;s decision period</div>
+  </div>
+</div>
+
+<main>
+
+<section id="abstract">
+  <h2>Abstract</h2>
+  <div class="prose">
+    <p>Large language models understand passengers' driving commands, but as driving agents they reason in generated text for seconds and must infer the consequences of each action implicitly from the scene. We present Jev-AD, which pairs Jev, a typed decision model that answers predefined questions with probabilities instead of generating text, with a language world model that predicts for every candidate action how nearby vehicles move over the next two seconds. Code turns these predictions into foreseen consequences, which Jev compares instead of inferring them from coordinates. In simulated highway merging (500 car-episodes), this foresight lowers the same decision model's collision rate from 26.0% to 2.4% at 0.25 seconds per decision, and Jev-AD achieves the passenger's intent in 93% of free-form command trials. In 500 replayed real-world NGSIM episodes, foresight lowers the collision rate from 48.2% to 2.8%, and the world model, learned from this traffic, foresees 93% of dangerous actions.</p>
+  </div>
+</section>
+
+<section id="why">
+  <h2>Why foresight?</h2>
+  <p class="lead">An LLM driving agent reads the scene as positions and speeds, and has to work out for itself what each action will lead to. In dense traffic this can fail.</p>
+  <figure>
+    <div class="sheet"><img src="static/images/fig1_paradigm.png" width="2000" height="816" alt="Three panels of the same NGSIM case on I-80: an LLM-based agent turns left and collides, a world-model-based agent stays in its lane, and Jev-AD waits 1.5 s and then moves left safely."></div>
+    <figcaption>A real NGSIM case on I-80: the passenger asks to move to the left lane while a car approaches in that lane at 18&nbsp;m/s. <b>(a)</b> An LLM-based agent, here Jev with KoMA's scene text, turns left at once and collides 0.95&nbsp;s later. <b>(b)</b> A world-model-based agent stays safe but cannot take the request. <b>(c)</b> Jev-AD's world model answers &ldquo;COLLISION within 1.5&nbsp;s&rdquo; for turning left, so Jev-AD waits 1.5&nbsp;s and then moves left.</figcaption>
+  </figure>
+</section>
+
+<section id="how">
+  <h2>How Jev-AD works</h2>
+  <p class="prose">Jev is a <b>typed decision model</b>: each question fixes the type of its answer (a choice among named options, a score on a scale, or yes/no), and the model returns a probability for every possible answer instead of generating text, in about 0.13&nbsp;s per call.</p>
+  <ol class="steps">
+    <li><div><span class="when">Once per command</span><b>Command grounding.</b> Jev answers four typed questions about the passenger's words: is the request unsafe, is it off-topic, how aggressive is it, and which maneuver does it ask for. Unsafe requests are refused.</div></li>
+    <li><div><span class="when">Every 0.5&nbsp;s</span><b>Foresight.</b> A small language world model reads the last 2&nbsp;s as text and predicts, for each candidate action, how up to nine nearby vehicles move over the next 2&nbsp;s, including how they react to the AV. Code turns the trajectories into consequences stated in words: whether and when the AV would collide, the minimum time to collision, and its final lane and speed.</div></li>
+    <li><div><span class="when">Every 0.5&nbsp;s</span><b>Decision.</b> One Jev call reads the command and the foreseen consequences and chooses the safe action that best matches the passenger's request.</div></li>
+  </ol>
+  <figure>
+    <div class="sheet"><img src="static/images/fig2_framework.png" width="2000" height="992" alt="Framework diagram: (a) command grounding with four typed questions, (b) the language world model predicting each candidate action's outcome, (c) one Jev call choosing the action."></div>
+    <figcaption>Jev-AD on an example scene (inputs and outputs abbreviated). <b>(a)</b> Jev grounds the command once with four typed questions. <b>(b)</b> The language world model predicts, for each candidate action, the controls of up to nine vehicles over 2&nbsp;s; a bicycle model integrates them into trajectories, and code turns these into consequences. <b>(c)</b> One Jev call chooses <i>Idle</i> under a hurry command, because turning left is foreseen to collide and accelerating to leave 0.8&nbsp;s to the ramp end.</figcaption>
+  </figure>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p class="prose">Foresight is what removes most collisions. With the same decision model and the same command grounding, KoMA's scene text leads to collisions in 26.0% of the car-episodes and foresight from the language world model to 2.4%. Even foresight from constant-velocity prediction lowers the rate to 2.8%, so the gain comes from the foresight itself. The world model makes the foresight more accurate: it raises fewer false alarms, and because it foresees that the car behind brakes, the car stops promptly when the passenger asks.</p>
+  <div class="pair">
+    <figure>
+      <div class="sheet"><img src="static/images/fig3_speed_safety.png" width="1200" height="677" alt="Scatter plot of time per decision against collision rate on the merge scenario; Jev-AD has few collisions at about 0.25 s per decision."></div>
+      <figcaption><b>Speed and collisions.</b> Time per decision and collision rate on the merge scenario. Only Jev-AD both collides rarely and decides well within the 0.5&nbsp;s decision period.</figcaption>
+    </figure>
+    <figure>
+      <div class="sheet"><img src="static/images/fig4_commands.png" width="1200" height="500" alt="Line chart of mean speed under seven graded commands, rising from stop to drive as fast as you possibly can."></div>
+      <figcaption><b>Graded commands.</b> Mean speed under seven commands, from &ldquo;Stop the car&rdquo; to &ldquo;Drive as fast as you possibly can&rdquo; (merge, 30 car-episodes each; bars: 95% bootstrap confidence intervals).</figcaption>
+    </figure>
+  </div>
+
+  <h3>Replayed real-world traffic (NGSIM)</h3>
+  <p class="prose">We replay recorded freeway traffic from NGSIM (US-101 and I-80). One recorded vehicle becomes the AV; every other vehicle follows its recording until the AV, or a vehicle that already reacts, is directly ahead of it and too close, and from then on IDM drives it. On average, 97% of the vehicles around the AV follow their recordings at a decision. The world model is trained on this traffic and foresees 93% of the dangerous actions, with false alarms for 10% of the safe ones.</p>
+  <div class="pair">
+    <figure>
+      <div class="sheet"><img src="static/images/fig6_replayed_traffic.png" width="1200" height="1318" alt="Top: Jev-AD's path and the recorded driver's path drawn on an aerial photo of I-80. Bottom: time-space diagram of recorded trajectories coloured by speed, showing stop-and-go waves."></div>
+      <figcaption><b>One test on I-80 in stop-and-go traffic.</b> (a) Jev-AD's path (blue) and the path of the driver recorded in the AV's place (dashed), drawn on an aerial photo of the site; the photo comes from a separate survey, so its cars are not part of the test. (b) Recorded trajectories in the AV's starting lane, colored by speed; the box marks the part shown in (a).</figcaption>
+    </figure>
+    <figure>
+      <div class="sheet"><img src="static/images/fig5_wm_ngsim.png" width="1200" height="1795" alt="Three NGSIM test states in which the world model's predicted trajectories (dashed) closely follow the replayed trajectories (solid) over 2 s."></div>
+      <figcaption><b>What the world model foresees.</b> Predictions for every tracked vehicle in three typical NGSIM test states: replay (solid) and prediction (dashed) over 2&nbsp;s, with positions after 1&nbsp;s (dots) and 2&nbsp;s (boxes).</figcaption>
+    </figure>
+  </div>
+  <p class="note">All results come from simulation and from replayed recorded traffic; no test was run on a vehicle. The paper lists the limitations.</p>
+</section>
+
+<section id="citation">
+  <h2>Citation</h2>
+  <div class="bib">
+    <button class="copy" type="button" id="copy-bib">Copy</button>
+<pre id="bibtex">@article{qu2026jevforesight,
+  title   = {Jev with Foresight: Safe Language-Guided Autonomous
+             Driving via a Language World Model},
+  author  = {Qu, Yansong and Chen, Jiancong and Labi, Samuel},
+  journal = {arXiv preprint},
+  year    = {2026}
+}</pre>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Contact: Yansong Qu, qu120@purdue.edu &middot; Purdue University
+</footer>
+
+</div>
+<script>
+(function () {
+  var btn = document.getElementById("copy-bib");
+  var pre = document.getElementById("bibtex");
+  if (!btn || !pre) return;
+  btn.addEventListener("click", function () {
+    var text = pre.textContent;
+    var done = function (ok) {
+      btn.textContent = ok ? "Copied" : "Select and copy";
+      setTimeout(function () { btn.textContent = "Copy"; }, 1800);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { selectText(); done(false); });
+      } else { selectText(); done(false); }
+    } catch (e) { selectText(); done(false); }
+    function selectText() {
+      var r = document.createRange(); r.selectNodeContents(pre);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -111,8 +111,7 @@ header.top { padding: 56px 0 28px; display: grid; gap: 14px; }
   background: var(--accent); color: var(--accent-ink);
 }
 .btn.ghost { background: transparent; color: var(--accent); }
-.btn.pending { background: transparent; color: var(--muted); border-color: var(--line); border-style: dashed; cursor: default; }
-.btn:hover:not(.pending) { filter: brightness(1.08); }
+.btn:hover { filter: brightness(1.08); }
 
 .video-card {
   background: var(--surface);
@@ -219,8 +218,9 @@ footer { padding: 36px 0 56px; color: var(--muted); font-size: var(--step--1); }
   <p class="authors"><span>Yansong Qu</span><span>Jiancong Chen</span><span>Samuel Labi</span></p>
   <p class="affil">Lyles School of Civil and Construction Engineering, Purdue University</p>
   <nav class="links" aria-label="Paper links">
-    <span class="btn pending" title="The arXiv link will be added once the preprint is posted">arXiv (coming soon)</span>
-    <a class="btn" href="#video">Video</a>
+    <a class="btn" href="https://arxiv.org/abs/2611.05448">arXiv</a>
+    <a class="btn ghost" href="https://arxiv.org/pdf/2611.05448">PDF</a>
+    <a class="btn ghost" href="#video">Video</a>
     <a class="btn ghost" href="#citation">BibTeX</a>
   </nav>
 </header>
@@ -321,7 +321,7 @@ footer { padding: 36px 0 56px; color: var(--muted); font-size: var(--step--1); }
   title   = {Jev with Foresight: Safe Language-Guided Autonomous
              Driving via a Language World Model},
   author  = {Qu, Yansong and Chen, Jiancong and Labi, Samuel},
-  journal = {arXiv preprint},
+  journal = {arXiv preprint arXiv:2611.05448},
   year    = {2026}
 }</pre>
   </div>
